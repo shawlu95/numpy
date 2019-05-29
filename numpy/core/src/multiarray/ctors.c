@@ -767,6 +767,14 @@ discover_dimensions(PyObject *obj, int *maxndim, npy_intp *d, int check_it,
             _dealloc_cached_buffer_info(obj);
             return 0;
         }
+        else if (PyErr_Occurred()) {
+            if (PyErr_ExceptionMatches(PyExc_BufferError) ||
+                    PyErr_ExceptionMatches(PyExc_TypeError)) {
+                PyErr_Clear();
+            } else {
+                return -1;
+            }
+        }
         else if (PyObject_GetBuffer(obj, &buffer_view, PyBUF_SIMPLE) == 0) {
             d[0] = buffer_view.len;
             *maxndim = 1;
@@ -774,8 +782,13 @@ discover_dimensions(PyObject *obj, int *maxndim, npy_intp *d, int check_it,
             _dealloc_cached_buffer_info(obj);
             return 0;
         }
-        else {
-            PyErr_Clear();
+        else if (PyErr_Occurred()) {
+            if (PyErr_ExceptionMatches(PyExc_BufferError) ||
+                    PyErr_ExceptionMatches(PyExc_TypeError)) {
+                PyErr_Clear();
+            } else {
+                return -1;
+            }
         }
     }
 
@@ -1054,7 +1067,9 @@ PyArray_NewFromDescr_int(PyTypeObject *subtype, PyArray_Descr *descr, int nd,
             goto fail;
         }
         fa->strides = fa->dimensions + nd;
-        memcpy(fa->dimensions, dims, sizeof(npy_intp)*nd);
+        if (nd) {
+            memcpy(fa->dimensions, dims, sizeof(npy_intp)*nd);
+        }
         if (strides == NULL) {  /* fill it in */
             _array_fill_strides(fa->strides, dims, nd, descr->elsize,
                                 flags, &(fa->flags));
@@ -1064,7 +1079,9 @@ PyArray_NewFromDescr_int(PyTypeObject *subtype, PyArray_Descr *descr, int nd,
              * we allow strides even when we create
              * the memory, but be careful with this...
              */
-            memcpy(fa->strides, strides, sizeof(npy_intp)*nd);
+            if (nd) {
+                memcpy(fa->strides, strides, sizeof(npy_intp)*nd);
+            }
         }
     }
     else {
@@ -2651,7 +2668,9 @@ PyArray_FromInterface(PyObject *origin)
                 goto fail;
             }
         }
-        memcpy(PyArray_STRIDES(ret), strides, n*sizeof(npy_intp));
+        if (n) {
+            memcpy(PyArray_STRIDES(ret), strides, n*sizeof(npy_intp));
+        }
     }
     PyArray_UpdateFlags(ret, NPY_ARRAY_UPDATE_ALL);
     Py_DECREF(iface);
