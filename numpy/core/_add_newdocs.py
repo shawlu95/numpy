@@ -1142,7 +1142,7 @@ add_newdoc('numpy.core.multiarray', 'fromiter',
 
 add_newdoc('numpy.core.multiarray', 'fromfile',
     """
-    fromfile(file, dtype=float, count=-1, sep='')
+    fromfile(file, dtype=float, count=-1, sep='', offset=0)
 
     Construct an array from data in a text or binary file.
 
@@ -1152,8 +1152,12 @@ add_newdoc('numpy.core.multiarray', 'fromfile',
 
     Parameters
     ----------
-    file : file or str
+    file : file or str or Path
         Open file object or filename.
+
+        .. versionchanged:: 1.17.0
+            `pathlib.Path` objects are now accepted.
+
     dtype : data-type
         Data type of the returned array.
         For binary files, it is used to determine the size and byte-order
@@ -1167,6 +1171,11 @@ add_newdoc('numpy.core.multiarray', 'fromfile',
         Spaces (" ") in the separator match zero or more whitespace characters.
         A separator consisting only of spaces must match at least one
         whitespace.
+    offset : int
+        The offset (in bytes) from the file's current position. Defaults to 0.
+        Only permitted for binary files.
+
+        .. versionadded:: 1.17.0
 
     See also
     --------
@@ -2957,8 +2966,11 @@ add_newdoc('numpy.core.multiarray', 'ndarray', ('dump',
 
     Parameters
     ----------
-    file : str
+    file : str or Path
         A string naming the dump file.
+
+        .. versionchanged:: 1.17.0
+            `pathlib.Path` objects are now accepted.
 
     """))
 
@@ -4004,8 +4016,12 @@ add_newdoc('numpy.core.multiarray', 'ndarray', ('tofile',
 
     Parameters
     ----------
-    fid : file or str
+    fid : file or str or Path
         An open file object, or a string containing a filename.
+
+        .. versionchanged:: 1.17.0
+            `pathlib.Path` objects are now accepted.
+
     sep : str
         Separator between array items for text output.
         If "" (empty), a binary file is written, equivalent to
@@ -5615,6 +5631,41 @@ add_newdoc('numpy.core.multiarray', 'dtype', ('subdtype',
     If a field whose dtype object has this attribute is retrieved,
     then the extra dimensions implied by *shape* are tacked on to
     the end of the retrieved array.
+
+    See Also
+    --------
+    dtype.base
+
+    Examples
+    --------
+    >>> x = numpy.dtype('8f')
+    >>> x.subdtype
+    (dtype('float32'), (8,))
+
+    >>> x =  numpy.dtype('i2')
+    >>> x.subdtype
+    >>>
+
+    """))
+
+add_newdoc('numpy.core.multiarray', 'dtype', ('base',
+    """
+    Returns dtype for the base element of the subarrays,
+    regardless of their dimension or shape.
+
+    See Also
+    --------
+    dtype.subdtype
+
+    Examples
+    --------
+    >>> x = numpy.dtype('8f')
+    >>> x.base
+    dtype('float32')
+
+    >>> x =  numpy.dtype('i2')
+    >>> x.base
+    dtype('int16')
 
     """))
 

@@ -36,7 +36,7 @@ cdef object int64_to_long(object x):
 
 cdef class RandomState:
     """
-    RandomState(bit_generator=None)
+    RandomState(seed=None)
 
     Container for the slow Mersenne Twister pseudo-random number generator.
     Consider using a different BitGenerator with the Generator container
@@ -55,14 +55,14 @@ cdef class RandomState:
     A fixed bit generator using a fixed seed and a fixed series of calls to
     'RandomState' methods using the same parameters will always produce the
     same results up to roundoff error except when the values were incorrect.
-    `RandomState` is effectively frozen and will only recieve updates that
+    `RandomState` is effectively frozen and will only receive updates that
     are required by changes in the the internals of Numpy. More substantial
     changes, including algorithmic improvements, are reserved for
     `Generator`.
 
     Parameters
     ----------
-    bit_generator : {None, int, array_like, BitGenerator}, optional
+    seed : {None, int, array_like, BitGenerator}, optional
         Random seed used to initialize the pseudo-random number generator or
         an instantized BitGenerator.  If an integer or array, used as a seed for
         the MT19937 BitGenerator. Values can be any integer between 0 and
@@ -94,11 +94,13 @@ cdef class RandomState:
     cdef object lock
     _poisson_lam_max = POISSON_LAM_MAX
 
-    def __init__(self, bit_generator=None):
-        if bit_generator is None:
+    def __init__(self, seed=None):
+        if seed is None:
             bit_generator = _MT19937()
-        elif not hasattr(bit_generator, 'capsule'):
-            bit_generator = _MT19937(bit_generator)
+        elif not hasattr(seed, 'capsule'):
+            bit_generator = _MT19937(seed)
+        else:
+            bit_generator = seed
 
         self._bit_generator = bit_generator
         capsule = bit_generator.capsule
@@ -569,8 +571,7 @@ cdef class RandomState:
         --------
         random.random_integers : similar to `randint`, only for the closed
             interval [`low`, `high`], and 1 is the lowest value if `high` is
-            omitted. In particular, this other one is the one to use to generate
-            uniformly distributed discrete non-integers.
+            omitted.
 
         Examples
         --------
@@ -606,12 +607,20 @@ cdef class RandomState:
             high = low
             low = 0
 
-        key = np.dtype(dtype).name
+        dt = np.dtype(dtype)
+        key = dt.name
         if key not in _integers_types:
             raise TypeError('Unsupported dtype "%s" for randint' % key)
+        if not dt.isnative:
+            # numpy 1.17.0, 2019-05-28
+            warnings.warn('Providing a dtype with a non-native byteorder is '
+                          'not supported. If you require platform-independent '
+                          'byteorder, call byteswap when required.\nIn future '
+                          'version, providing byteorder will raise a '
+                          'ValueError', DeprecationWarning)
 
         # Implementation detail: the use a masked method to generate
-        # bounded uniform integers. Lemire's method is preferrable since it is
+        # bounded uniform integers. Lemire's method is preferable since it is
         # faster. randomgen allows a choice, we will always use the slower but
         # backward compatible one.
         cdef bint _masked = True
@@ -770,7 +779,8 @@ cdef class RandomState:
                 if np.issubdtype(p.dtype, np.floating):
                     atol = max(atol, np.sqrt(np.finfo(p.dtype).eps))
 
-            p = <np.ndarray>np.PyArray_FROM_OTF(p, np.NPY_DOUBLE, np.NPY_ALIGNED)
+            p = <np.ndarray>np.PyArray_FROM_OTF(
+                p, np.NPY_DOUBLE, np.NPY_ALIGNED | np.NPY_ARRAY_C_CONTIGUOUS)
             pix = <double*>np.PyArray_DATA(p)
 
             if p.ndim != 1:
@@ -798,7 +808,9 @@ cdef class RandomState:
                 cdf /= cdf[-1]
                 uniform_samples = self.random_sample(shape)
                 idx = cdf.searchsorted(uniform_samples, side='right')
-                idx = np.array(idx, copy=False)  # searchsorted returns a scalar
+                # searchsorted returns a scalar
+                # force cast to int for LLP64
+                idx = np.array(idx, copy=False).astype(int, casting='unsafe')
             else:
                 idx = self.randint(0, pop_size, size=shape)
         else:
@@ -813,7 +825,7 @@ cdef class RandomState:
                     raise ValueError("Fewer non-zero entries in p than size")
                 n_uniq = 0
                 p = p.copy()
-                found = np.zeros(shape, dtype=np.int64)
+                found = np.zeros(shape, dtype=int)
                 flat_found = found.ravel()
                 while n_uniq < size:
                     x = self.rand(size - n_uniq)
@@ -3844,7 +3856,8 @@ cdef class RandomState:
         cdef long ni
 
         d = len(pvals)
-        parr = <np.ndarray>np.PyArray_FROM_OTF(pvals, np.NPY_DOUBLE, np.NPY_ALIGNED)
+        parr = <np.ndarray>np.PyArray_FROM_OTF(
+            pvals, np.NPY_DOUBLE, np.NPY_ALIGNED | np.NPY_ARRAY_C_CONTIGUOUS)
         pix = <double*>np.PyArray_DATA(parr)
         check_array_constraint(parr, 'pvals', CONS_BOUNDED_0_1)
         if kahan_sum(pix, d-1) > (1.0 + 1e-12):
@@ -3976,7 +3989,8 @@ cdef class RandomState:
         cdef double  acc, invacc
 
         k = len(alpha)
-        alpha_arr = <np.ndarray>np.PyArray_FROM_OTF(alpha, np.NPY_DOUBLE, np.NPY_ALIGNED)
+        alpha_arr = <np.ndarray>np.PyArray_FROM_OTF(
+            alpha, np.NPY_DOUBLE, np.NPY_ALIGNED | np.NPY_ARRAY_C_CONTIGUOUS)
         if np.any(np.less_equal(alpha_arr, 0)):
             raise ValueError('alpha <= 0')
         alpha_data = <double*>np.PyArray_DATA(alpha_arr)
@@ -4186,7 +4200,7 @@ power = _rand.power
 rand = _rand.rand
 randint = _rand.randint
 randn = _rand.randn
-random = _rand.random_sample
+random = _rand.random
 random_integers = _rand.random_integers
 random_sample = _rand.random_sample
 rayleigh = _rand.rayleigh
@@ -4251,6 +4265,7 @@ __all__ = [
     'rand',
     'randint',
     'randn',
+    'random',
     'random_integers',
     'random_sample',
     'ranf',
@@ -4272,5 +4287,3 @@ __all__ = [
     'zipf',
     'RandomState',
 ]
-
-

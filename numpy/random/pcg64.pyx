@@ -254,7 +254,7 @@ cdef class PCG64:
                        <uint64_t *>np.PyArray_DATA(_inc))
         self._reset_state_variables()
 
-    cdef jump_inplace(self, iter):
+    cdef jump_inplace(self, jumps):
         """
         Jump state in-place
 
@@ -262,35 +262,46 @@ cdef class PCG64:
 
         Parameters
         ----------
-        iter : integer, positive
+        jumps : integer, positive
             Number of times to jump the state of the rng.
-        """
-        self.advance(iter * 2**64)
 
-    def jumped(self, iter=1):
+        Notes
+        -----
+        The step size is phi-1 when divided by 2**128 where phi is the
+        golden number.
         """
-        jumped(iter=1)
+        step = 0x9e3779b97f4a7c15f39cc0605cedc834
+        self.advance(step * int(jumps))
+
+    def jumped(self, jumps=1):
+        """
+        jumped(jumps=1)
 
         Returns a new bit generator with the state jumped
 
-        The state of the returned big generator is jumped as-if
-        2**(64 * iter) random numbers have been generated.
+        Jumps the state as-if jumps * 210306068529402873165736369884012333108
+        random numbers have been generated.
 
         Parameters
         ----------
-        iter : integer, positive
+        jumps : integer, positive
             Number of times to jump the state of the bit generator returned
 
         Returns
         -------
         bit_generator : PCG64
             New instance of generator jumped iter times
+
+        Notes
+        -----
+        The step size is phi-1 when divided by 2**128 where phi is the
+        golden number.
         """
         cdef PCG64 bit_generator
 
         bit_generator = self.__class__()
         bit_generator.state = self.state
-        bit_generator.jump_inplace(iter)
+        bit_generator.jump_inplace(jumps)
 
         return bit_generator
 
@@ -379,6 +390,8 @@ cdef class PCG64:
         Advancing the RNG state resets any pre-computed random numbers.
         This is required to ensure exact reproducibility.
         """
+        delta = wrap_int(delta, 128)
+
         cdef np.ndarray d = np.empty(2, dtype=np.uint64)
         d[0] = delta // 2**64
         d[1] = delta % 2**64

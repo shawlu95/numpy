@@ -1,4 +1,7 @@
 import sys
+
+import pytest
+
 from numpy.testing import (
     assert_, assert_array_equal, assert_raises,
     )
@@ -155,3 +158,26 @@ class TestRegression(object):
         perm = random.permutation(m)
         assert_array_equal(perm, np.array([2, 1, 4, 0, 3]))
         assert_array_equal(m.__array__(), np.arange(5))
+
+    def test_warns_byteorder(self):
+        # GH 13159
+        other_byteord_dt = '<i4' if sys.byteorder == 'big' else '>i4'
+        with pytest.deprecated_call(match='non-native byteorder is not'):
+            random.randint(0, 200, size=10, dtype=other_byteord_dt)
+
+    def test_named_argument_initialization(self):
+        # GH 13669
+        rs1 = np.random.RandomState(123456789)
+        rs2 = np.random.RandomState(seed=123456789)
+        assert rs1.randint(0, 100) == rs2.randint(0, 100)
+
+    def test_choice_retun_dtype(self):
+        # GH 9867
+        c = np.random.choice(10, p=[.1]*10, size=2)
+        assert c.dtype == np.dtype(int)
+        c = np.random.choice(10, p=[.1]*10, replace=False, size=2)
+        assert c.dtype == np.dtype(int)
+        c = np.random.choice(10, size=2)
+        assert c.dtype == np.dtype(int)
+        c = np.random.choice(10, replace=False, size=2)
+        assert c.dtype == np.dtype(int)
