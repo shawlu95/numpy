@@ -43,6 +43,13 @@ from python.
 This deprecation should not affect many users since arrays created in such
 a manner are very rare in practice and only available through the NumPy C-API.
 
+`numpy.nonzero` should no longer be called on 0d arrays
+-------------------------------------------------------
+The behavior of nonzero on 0d arrays was surprising, making uses of it almost
+always incorrect. If the old behavior was intended, it can be preserved without
+a warning by using ``nonzero(atleast_1d(arr))`` instead of ``nonzero(arr)``.
+In a future release, it is most likely this will raise a `ValueError`.
+
 
 Future Changes
 ==============
@@ -123,6 +130,23 @@ There is a 1 in :math:`10^{53}` chance of this occurring, and so the probability
 the stream changes for any given seed is extremely small. If a 0 is encountered in the
 underlying generator, then the incorrect value produced (either ``np.inf``
 or ``np.nan``) is now dropped.
+
+``i0`` now always returns a result with the same shape as the input
+-------------------------------------------------------------------
+Previously, the output was squeezed, such that, e.g., input with just a single
+element would lead to an array scalar being returned, and inputs with shapes
+such as ``(10, 1)`` would yield results that would not broadcast against the
+input.
+
+Note that we generally recommend the scipy implementation over the numpy one:
+it is a proper ufunc written in C, and more than an order of magnitude faster.
+
+``np.can_cast`` no longer assumes all unsafe casting is allowed
+---------------------------------------------------------------
+Previously, ``can_cast`` returned `True` for almost all inputs for
+``casting='unsafe'``, even for cases where casting was not possible, such as
+from a structured dtype to a regular one.  This has been fixed, making it
+more consistent with actual casting using, e.g., the ``.astype`` method.
 
 C API changes
 =============

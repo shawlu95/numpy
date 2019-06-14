@@ -419,7 +419,8 @@ cdef class Generator:
         References
         ----------
         .. [1] Daniel Lemire., "Fast Random Integer Generation in an Interval",
-               CoRR, Aug. 13, 2018, http://arxiv.org/abs/1805.10941.
+               ACM Transactions on Modeling and Computer Simulation 29 (1), 2019,
+               http://arxiv.org/abs/1805.10941.
 
         """
         if high is None:
@@ -439,7 +440,7 @@ cdef class Generator:
         # Implementation detail: the old API used a masked method to generate
         # bounded uniform integers. Lemire's method is preferable since it is
         # faster. randomgen allows a choice, we will always use the faster one.
-        cdef bint _masked = True
+        cdef bint _masked = False
 
         if key == 'int32':
             ret = _rand_int32(low, high, size, _masked, endpoint, &self._bitgen, self.lock)
